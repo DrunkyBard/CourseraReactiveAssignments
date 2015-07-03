@@ -9,6 +9,9 @@ import scala.async.Async.{async, await}
 object Main {
 
   def main(args: Array[String]) {
+
+    val a = Future.any(List(Future { 1 }, Future { 2 }, Future { throw new Exception }))
+    val qwe = a.value
     // 1. instantiate the server at 8191, relative path "/test",
     //    and have the response return headers of the request
     val myServer = new NodeScala.Default(8191)
