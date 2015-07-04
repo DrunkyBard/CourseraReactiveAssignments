@@ -101,7 +101,10 @@ package object nodescala {
      *  depending on the current state of the `Future`.
      */
     def now: T = {
-      Await.result(f, 0 second)
+      f.value match {
+        case Some(x) => x.get
+        case None => throw new NoSuchElementException()
+      }
     }
 
     /** Continues the computation of this future by taking the current future
