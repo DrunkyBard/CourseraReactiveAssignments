@@ -33,7 +33,11 @@ package object nodescala {
      *  If any of the futures `fs` fails, the resulting future also fails.
      */
     def all[T](fs: List[Future[T]]): Future[List[T]] =  {
-
+      fs match{
+        case h::t => h.flatMap(rh =>
+          all(t).flatMap(rt => Future(rh::rt)))
+        case Nil => Future(Nil)
+      }
     }
     /** Given a list of futures `fs`, returns the future holding the value of the future from `fs` that completed first.
      *  If the first completing future in `fs` fails, then the result is failed as well.
@@ -60,7 +64,9 @@ package object nodescala {
     /** Returns a future with a unit value that is completed after time `t`.
      */
     def delay(t: Duration): Future[Unit] = Future{
-      Await.ready(Future{}, t)
+      blocking{
+        Thread.sleep(t.toMillis)
+      }
     }
 
     /** Completes this future with user input.
@@ -73,8 +79,13 @@ package object nodescala {
 
     /** Creates a cancellable context for an execution and runs it.
      */
-    def run()(f: CancellationToken => Future[Unit]): Subscription = ???
+    def run()(f: CancellationToken => Future[Unit]): Subscription = {
+      val cts = CancellationTokenSource()
+      f(cts.cancellationToken)
+        .onComplete(t => cts.unsubscribe())
 
+      cts
+    }
   }
 
   /** Adds extension methods to future objects.
@@ -99,7 +110,9 @@ package object nodescala {
      *  The function `cont` is called only after the current future completes.
      *  The resulting future contains a value returned by `cont`.
      */
-    def continueWith[S](cont: Future[T] => S): Future[S] = ???
+    def continueWith[S](cont: Future[T] => S): Future[S] = {
+      f.flatMap(_ => Future(cont(f)))
+    }
 
     /** Continues the computation of this future by taking the result
      *  of the current future and mapping it into another future.
@@ -107,8 +120,9 @@ package object nodescala {
      *  The function `cont` is called only after the current future completes.
      *  The resulting future contains a value returned by `cont`.
      */
-    def continue[S](cont: Try[T] => S): Future[S] = ???
-
+    def continue[S](cont: Try[T] => S): Future[S] = {
+      continueWith(cf => cont(cf.value.get))
+    }
   }
 
   /** Subscription objects are used to be able to unsubscribe
